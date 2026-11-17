@@ -21,11 +21,13 @@ internal static class Program
         var others = Process.GetProcessesByName(AppName).Count(p => p.Id != Environment.ProcessId);
         if (!isFirst || others > 0)
         {
-            Ipc.Send(Ipc.Parse(command ?? "--menu"));
+            var argument = args.Length >= 2 && long.TryParse(args[1], out var h) ? (IntPtr)h : IntPtr.Zero;
+            Ipc.Send(Ipc.Parse(command ?? "--menu"), argument);
             return 0;
         }
         if (Ipc.Parse(command) == IpcCommand.Exit) return 0;
         Updater.CleanUp();
+        if (afterUpdate) Updater.SyncInstalledVersion();
 
         Application.ThreadException += (_, e) => Log.Write("unhandled: " + e.Exception);
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);

@@ -41,6 +41,7 @@ internal sealed class Settings
     public bool HoverReveal { get; set; } = true;             // hovering a covered window's title bar shows it above the pinned window
     public bool SeparateTaskbarButtons { get; set; }          // every window of an app gets its own taskbar button (off by default)
     public bool AutoUpdate { get; set; } = true;              // install promoted GitHub releases automatically
+    public bool EdgeAppWindows { get; set; } = true;          // an Edge window docked in a corner is shown as a compact Edge app window
 
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 

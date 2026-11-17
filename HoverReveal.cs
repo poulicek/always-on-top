@@ -4,8 +4,8 @@ using static AlwaysOnTop.Native;
 namespace AlwaysOnTop;
 
 // Hover reveal: moving the cursor onto the title bar of a window that a pinned window covers brings that window above
-// the pinned one while the cursor stays on that title bar (user request 2026-10-07: only the heading, not the whole
-// window); nothing gets activated and no other window changes its place.
+// the pinned one while the cursor stays on that title bar (only the heading, not the whole window, so working inside a
+// covered window does not keep flipping the z-order); nothing gets activated and no other window changes its place.
 // Done by lowering the pinned window (Pinner.Lower: out of the topmost band, directly below the hovered window) and
 // raising it back afterwards – the only window that ever moves in the z-order is the pinned one.
 //
@@ -15,7 +15,7 @@ namespace AlwaysOnTop;
 // (WM_NCHITTEST, 30 ms timeout) is only sent when the cursor moved onto a new spot of another window.
 //
 // Timing: reveal once the cursor has been on the same covered title bar for ~300 ms (moving along it is fine; an
-// immediate reveal, tried 2026-10-20, was distracting - the user asked for the delay back); keep it up ~500 ms after
+// immediate reveal was tried and found distracting); keep it up ~500 ms after
 // the cursor left the title bar, so a brief move off it does not drop the window again. Another covered title bar
 // during that grace period takes over after its own 300 ms. Nothing changes while a mouse button is down (drags,
 // resizes, clicks in progress).
@@ -134,10 +134,10 @@ internal sealed class HoverReveal : IDisposable
 
     // Title bar at `pt`? Asked first of the window directly under the cursor: apps that draw their own title bar in a
     // web view (new Teams, other WebView2/Electron/Chromium apps) answer HTCLIENT on the top-level window but HTCAPTION
-    // on the child that covers the drag strip (measured on Teams 2026-10-12: Chrome_WidgetWin_0 child, top 51 px).
+    // on the child that covers the drag strip (measured on Teams: Chrome_WidgetWin_0 child, top 51 px).
     // Classic windows have no such child (under == root), so they still cost one message.
-    // Checked first: the title-bar STRIP (2026-10-20, user: extra buttons / search boxes / tabs in a title bar answer
-    // HTCLIENT and dropped the peek). The strip is geometry only – no message to the app, so it is also cheaper.
+    // Checked first: the title-bar STRIP (extra buttons / search boxes / tabs in a title bar answer HTCLIENT and
+    // would otherwise not count as title bar). The strip is geometry only – no message to the app, so it is also cheaper.
     private bool IsCaption(IntPtr root, IntPtr under, POINT pt)
     {
         if (InTitleStrip(root, pt)) return true;

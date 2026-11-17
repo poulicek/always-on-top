@@ -1,16 +1,18 @@
-# Pushing a version tag (v1.2.0) builds the app and publishes it as a PRE-release. Installed copies only update to the
-# release marked "Latest" - promote a tested pre-release on GitHub ("Set as the latest release") to ship it.
-name: Release
+# Every push to main builds the app and the installer (downloadable as a workflow artifact for testing).
+# Pushing a version tag (v1.2.0) also publishes them as a PRE-release. Installed copies only update to the release
+# marked "Latest" - promote a tested pre-release on GitHub ("Set as the latest release") to ship it.
+name: Build and release
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -19,21 +21,47 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Build
+      - name: Build app
         shell: pwsh
         env:
-          TAG: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          $version = $env:TAG.TrimStart('v')
-          dotnet publish AlwaysOnTop.csproj -c Release -o out -p:Version=$version
+          $version = if ($env:REF_TYPE -eq 'tag') { $env:REF_NAME.TrimStart('v') } else { ([xml](Get-Content AlwaysOnTop.csproj)).Project.PropertyGroup.Version }
+          "VERSION=$version" >> $env:GITHUB_ENV
+          dotnet publish AlwaysOnTop.csproj -c Release -o out/app -p:Version=$version
           if ($LASTEXITCODE -ne 0) { throw "publish failed" }
-          Compress-Archive -Path "out/Always on Top.exe" -DestinationPath AlwaysOnTop-win-x64.zip
-          $hash = (Get-FileHash AlwaysOnTop-win-x64.zip -Algorithm SHA256).Hash.ToLower()
-          "$hash  AlwaysOnTop-win-x64.zip" | Out-File -Encoding ascii AlwaysOnTop-win-x64.zip.sha256
+          Compress-Archive -Path "out/app/Always on Top.exe" -DestinationPath out/AlwaysOnTop-win-x64.zip
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup*\ISCC.exe", "$env:ProgramFiles\Inno Setup*\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) {
+            choco install innosetup --no-progress -y | Out-Null
+            $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup*\ISCC.exe", "$env:ProgramFiles\Inno Setup*\ISCC.exe" | Select-Object -First 1
+          }
+          & $iscc.FullName /Q "/DAppVersion=$env:VERSION" "/DSourceDir=$PWD\out\app" installer\AlwaysOnTop.iss
+          if ($LASTEXITCODE -ne 0) { throw "installer build failed" }
+          Push-Location out
+          foreach ($f in 'AlwaysOnTop-win-x64.zip', 'AlwaysOnTop-Setup.exe') {
+            "$((Get-FileHash $f -Algorithm SHA256).Hash.ToLower())  $f" | Out-File -Encoding ascii "$f.sha256"
+          }
+          Pop-Location
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: always-on-top-${{ env.VERSION }}
+          path: |
+            out/AlwaysOnTop-Setup.exe
+            out/AlwaysOnTop-win-x64.zip
+            out/*.sha256
 
       - name: Publish pre-release
+        if: github.ref_type == 'tag'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release create $env:TAG AlwaysOnTop-win-x64.zip AlwaysOnTop-win-x64.zip.sha256 --prerelease --generate-notes --title $env:TAG
+        run: |
+          gh release create $env:TAG out/AlwaysOnTop-Setup.exe out/AlwaysOnTop-Setup.exe.sha256 out/AlwaysOnTop-win-x64.zip out/AlwaysOnTop-win-x64.zip.sha256 --prerelease --generate-notes --title $env:TAG

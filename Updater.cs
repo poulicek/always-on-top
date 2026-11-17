@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
+using Microsoft.Win32;
 
 namespace AlwaysOnTop;
 
@@ -18,6 +19,7 @@ internal sealed class Updater : IDisposable
 {
     public const string Repository = "poulicek/always-on-top";
     public const string AssetName = "AlwaysOnTop-win-x64.zip";
+    public const string InstallerAppId = "{5A363F0F-92AB-4EC4-BB93-C3F06D362A5C}";   // installer/AlwaysOnTop.iss
     private static readonly TimeSpan FirstCheck = TimeSpan.FromMinutes(1), Interval = TimeSpan.FromHours(12);
 
     private readonly System.Windows.Forms.Timer _timer = new();
@@ -140,6 +142,19 @@ internal sealed class Updater : IDisposable
         try { using var old = Process.GetProcessById(pid); old.WaitForExit(15000); }
         catch (ArgumentException) { /* already gone */ }
         catch (Exception ex) { Log.Write("update: wait for previous failed: " + ex.Message); }
+    }
+
+    // Installed with the setup: keep the version shown in Settings > Apps current after a self-update.
+    public static void SyncInstalledVersion()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey($@"Software\Microsoft\Windows\CurrentVersion\Uninstall\{InstallerAppId}_is1", writable: true);
+            if (key == null) return;
+            key.SetValue("DisplayVersion", Current.ToString());
+            key.SetValue("DisplayName", Program.AppName);
+        }
+        catch (Exception ex) { Log.Write("update: installer version not updated: " + ex.Message); }
     }
 
     public void Dispose() => _timer.Dispose();

@@ -3,7 +3,7 @@ namespace AlwaysOnTop;
 // Invisible window: owns the UI thread (BeginInvoke), receives IPC commands, owns the tray menu. Never shown.
 internal sealed class HostForm : Form
 {
-    public event Action<IpcCommand>? CommandReceived;
+    public event Action<IpcCommand, IntPtr>? CommandReceived;
     public event Action<int, IntPtr>? ShellMessage;                 // RegisterShellHookWindow notifications (code, hwnd)
     private static readonly uint ShellHookMessage = RegisterWindowMessage("SHELLHOOK");
 
@@ -37,7 +37,7 @@ internal sealed class HostForm : Form
     {
         if (m.Msg == Ipc.Message)
         {
-            CommandReceived?.Invoke((IpcCommand)(int)m.WParam);
+            CommandReceived?.Invoke((IpcCommand)(int)m.WParam, m.LParam);
             return;
         }
         if (m.Msg == ShellHookMessage)

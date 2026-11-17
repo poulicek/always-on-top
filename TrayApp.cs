@@ -14,6 +14,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly HoverReveal _hover;
     private readonly TaskbarSplitter _splitter;
     private readonly Updater _updater;
+    private readonly EdgeAppMode _edgeApp;
     private Icon? _trayIcon;
     private string? _trayKey;
     private bool _exiting;
@@ -37,6 +38,7 @@ internal sealed class TrayApp : ApplicationContext
         _updater = new Updater(_settings.AutoUpdate);
         _updater.Notify += (msg, icon) => _tray.ShowBalloonTip(5000, Program.AppName, msg, icon);
         _updater.RestartRequested += Restart;
+        _edgeApp = new EdgeAppMode(_pinner, _host, _settings.EdgeAppWindows);
         _snapper.DragEnded += OnDragEnded;
         _snapper.CornerChanged += (hwnd, inCorner) => { if (_settings.AutoPinCorner) _pinner.CornerPreview(hwnd, inCorner); };
 
@@ -107,6 +109,7 @@ internal sealed class TrayApp : ApplicationContext
         menu.Add("Stick windows to screen edges", ToggleStick, isChecked: _settings.StickToEdges);
         menu.Add("Pin windows docked in a right-hand corner", ToggleAutoPin, isChecked: _settings.AutoPinCorner, enabled: _settings.StickToEdges);
         menu.Add("Separate taskbar button for every window", ToggleSplit, isChecked: _settings.SeparateTaskbarButtons);
+        menu.Add("Show corner-pinned Edge tabs as compact app windows", ToggleEdgeApp, isChecked: _settings.EdgeAppWindows);
         menu.Add("Start with Windows", ToggleAutostart, isChecked: _settings.AutoStart);
         menu.AddSeparator();
         menu.Add("Install updates automatically", ToggleAutoUpdate, isChecked: _settings.AutoUpdate);
@@ -156,6 +159,13 @@ internal sealed class TrayApp : ApplicationContext
         _hover.Enabled = _settings.HoverReveal;
     }
 
+    private void ToggleEdgeApp()
+    {
+        _settings.EdgeAppWindows = !_settings.EdgeAppWindows;
+        _settings.Save();
+        _edgeApp.Enabled = _settings.EdgeAppWindows;
+    }
+
     private void ToggleSplit()
     {
         _settings.SeparateTaskbarButtons = !_settings.SeparateTaskbarButtons;
@@ -200,13 +210,16 @@ internal sealed class TrayApp : ApplicationContext
         catch (Exception ex) { Log.Write("autostart failed: " + ex.Message); }
     }
 
-    private void OnCommand(IpcCommand command)
+    private void OnCommand(IpcCommand command, IntPtr argument)
     {
         Log.Write("command " + command);
         switch (command)
         {
             case IpcCommand.Menu: ShowMenu(Cursor.Position); break;
             case IpcCommand.Exit: Exit(); break;
+            case IpcCommand.Pin: if (Native.IsWindow(argument)) _pinner.Pin(argument, auto: false); break;
+            case IpcCommand.Unpin: if (Native.IsWindow(argument)) _pinner.Unpin(argument); break;
+            case IpcCommand.PinCorner: if (Native.IsWindow(argument)) _pinner.Pin(argument, auto: true); break;
             case IpcCommand.SplitOn or IpcCommand.SplitOff:
                 if (_settings.SeparateTaskbarButtons != (command == IpcCommand.SplitOn)) ToggleSplit();
                 break;
@@ -250,6 +263,7 @@ internal sealed class TrayApp : ApplicationContext
         _hover.Dispose();
         _splitter.Dispose();
         _updater.Dispose();
+        _edgeApp.Dispose();                  // app windows closed, original Edge windows restored before unpinning
         _pinner.Dispose();
         _tray.Visible = false;
         _tray.Dispose();

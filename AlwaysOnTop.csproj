@@ -6,6 +6,7 @@
     <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>                       <!-- only for System.Windows.Automation (Edge address bar) -->
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>app.ico</ApplicationIcon>
@@ -14,7 +15,7 @@
     <Product>Always on Top</Product>
     <AssemblyTitle>Always on Top</AssemblyTitle>
     <Description>Adds "Always on Top" to the title-bar menu of every window</Description>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <SelfContained>false</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
@@ -26,5 +27,10 @@
     <TieredPGO>false</TieredPGO>
     <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- UseWPF (for System.Windows.Automation) drops System.IO from the implicit usings -->
+    <Using Include="System.IO" />
+  </ItemGroup>
 
 </Project>

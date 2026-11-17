@@ -34,6 +34,8 @@ internal sealed class Pinner : IDisposable
 
     public event Action? Changed;
     public event Action<string>? Failed;
+    public event Action<IntPtr, bool>? Pinned;                  // (window, auto) after a successful pin
+    public event Action<IntPtr>? Released;                      // window left the pinned set (unpin, closed, swept)
 
     public Pinner(bool showBorder, int thickness)
     {
@@ -121,6 +123,7 @@ internal sealed class Pinner : IDisposable
         _sweep.Start();
         _guard.Start();
         Changed?.Invoke();
+        Pinned?.Invoke(hwnd, auto);
     }
 
     public void Unpin(IntPtr hwnd)
@@ -147,6 +150,7 @@ internal sealed class Pinner : IDisposable
         }
         if (_pinned.Count == 0) _sweep.Stop();
         Changed?.Invoke();
+        Released?.Invoke(hwnd);
     }
 
     private PinBorder NewBorder(IntPtr hwnd)

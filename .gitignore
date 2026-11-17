@@ -4,3 +4,4 @@ obj/
 .vs/
 tools/icon-preview.png
 CLAUDE.local.md
+out/
