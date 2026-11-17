@@ -1,6 +1,6 @@
 # Rebuilds "Always on Top.exe", installs it to %LOCALAPPDATA%\Always on Top and refreshes the Start Menu shortcut.
-# Usage:  powershell -ExecutionPolicy Bypass -File Publish.ps1 [-Launch]
-param([switch]$Launch)
+# Usage:  powershell -ExecutionPolicy Bypass -File Publish.ps1 [-Launch] [-Version 1.2.3]   (default: csproj <Version>)
+param([switch]$Launch, [string]$Version)
 $ErrorActionPreference = 'Stop'
 $root    = $PSScriptRoot
 $appName = 'Always on Top'
@@ -28,7 +28,8 @@ Start-Sleep -Milliseconds 300
 # 1) icon + build into a staging folder
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tools\Make-Icon.ps1')
 $staging = Join-Path $root 'bin\publish'
-dotnet publish (Join-Path $root 'AlwaysOnTop.csproj') -c Release -o $staging
+[string[]]$extra = @(); if ($Version) { $extra += "-p:Version=$Version" }
+dotnet publish (Join-Path $root 'AlwaysOnTop.csproj') -c Release -o $staging @extra
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
 
 # 2) install to the physical %LOCALAPPDATA% location
